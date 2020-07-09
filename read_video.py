@@ -30,6 +30,7 @@ link = input()
 def read_video_red(link):
     cap = cv2.VideoCapture(link)
     print ("read")
+    all_points = []
     while(cap.isOpened()):
         ret, frame = cap.read()
         if ret == True:
@@ -39,14 +40,14 @@ def read_video_red(link):
             mask = cv2.inRange(color, lower_red, upper_red)
             res = cv2.bitwise_and(frame,frame, mask= mask)
             cv2.imshow('frame', mask)
-            LUV = cv2.cvtColor(res, cv2.COLOR_BGR2LUV)
+            get_contours(res, frame, all_points)
+            """LUV = cv2.cvtColor(res, cv2.COLOR_BGR2LUV)
             edges = cv2.Canny(LUV, 10, 100)
             contours, hierarchy = cv2.findContours(edges,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
             print("Number of Contours is: " + str(len(contours)))
-            print(contours)
-            print(hierarchy)
-            cv2.imshow('Contours', image)
-            cv2.waitKey(0)
+            print(contours)"""
+            #cv2.imshow('Contours', image)
+            #cv2.waitKey(0)
             # & 0xFF is required for a 64-bit system
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 break
@@ -54,6 +55,26 @@ def read_video_red(link):
             break
     cap.release()
     cv2.destroyAllWindows()
+
+def get_contours(mask, frame, all_points):
+    LUV = cv2.cvtColor(mask, cv2.COLOR_BGR2LUV)
+    edges = cv2.Canny(LUV, 10, 100)
+    contours, hierarchy = cv2.findContours(edges,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    print("Number of Contours is: " + str(len(contours)))
+    #print(contours)
+    useful_points = [ ]
+    for contour in contours:
+        #print("Bounding Rect", cv2.boundingRect(contour))
+        x_left, y_up, width, height= cv2.boundingRect(contour)
+        ## find midpoint 
+        ### useful_points.append(mid_point)
+        cv2.rectangle(frame,(x_left, y_up), (x_left + width, y_up+height), (0,0,255), 3)
+    for contour in contours:
+        x_left, y_up, width, height= cv2.boundingRect(contour)
+        useful_points.append((x_left+(width/2),y_up+(height/2)))
+    all_points.append(useful_points) 
+    #print(all_points)
+    cv2.imshow('Found Red', frame)
 
 #def get_cordinates()
 read_video_red(link)
