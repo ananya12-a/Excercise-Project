@@ -60,20 +60,30 @@ def get_contours(mask, frame, all_points):
     LUV = cv2.cvtColor(mask, cv2.COLOR_BGR2LUV)
     edges = cv2.Canny(LUV, 10, 100)
     contours, hierarchy = cv2.findContours(edges,cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
-    print("Number of Contours is: " + str(len(contours)))
-    #print(contours)
-    useful_points = [ ]
+    #print("Number of Contours is: " + str(len(contours)))
+    contours_final = []
     for contour in contours:
+        x_left, y_up, width, height= cv2.boundingRect(contour)
+        if ((len(contour)>2 and (width*height)>500) or (len(contour)<=2 and width*height)>200):
+            contours_final.append(contour)
+            x_left, y_up, width, height= cv2.boundingRect(contour)
+            #print("Area", width*height)
+    #print(contours)
+    print("Number of Contours is: " + str(len(contours_final)))
+    useful_points = [ ]
+    for contour in contours_final:
         #print("Bounding Rect", cv2.boundingRect(contour))
         x_left, y_up, width, height= cv2.boundingRect(contour)
         ## find midpoint 
         ### useful_points.append(mid_point)
+        #print("Area", width*height)
         cv2.rectangle(frame,(x_left, y_up), (x_left + width, y_up+height), (0,0,255), 3)
-    for contour in contours:
-        x_left, y_up, width, height= cv2.boundingRect(contour)
         useful_points.append((x_left+(width/2),y_up+(height/2)))
+    """for contour in contours_final:
+        x_left, y_up, width, height= cv2.boundingRect(contour)
+       """ 
     all_points.append(useful_points) 
-    #print(all_points)
+    print(all_points)
     cv2.imshow('Found Red', frame)
 
 #def get_cordinates()
