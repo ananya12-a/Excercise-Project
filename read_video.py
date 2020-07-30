@@ -64,7 +64,7 @@ def get_contours(mask, frame, all_points):
     contours_final = []
     for contour in contours:
         x_left, y_up, width, height= cv2.boundingRect(contour)
-        if ((len(contour)>2 and (width*height)>500) or (len(contour)<=2 and width*height)>200):
+        if ((width*height)>20):
             contours_final.append(contour)
             x_left, y_up, width, height= cv2.boundingRect(contour)
             #print("Area", width*height)
@@ -86,8 +86,10 @@ def get_contours(mask, frame, all_points):
     """for contour in contours_final:
         x_left, y_up, width, height= cv2.boundingRect(contour)
        """ 
-    if (len(useful_points)==2):
+    if (len(useful_points)>=2):
         all_points.append(useful_points) 
+    if (len(useful_points)==2):
+        #all_points.append(useful_points) 
 
         cv2.line(frame, (int(useful_points[0][0]),int(useful_points[0][1])), (int(useful_points[1][0]),int(useful_points[1][1])), (255,255,255),4)
     print(all_points)
