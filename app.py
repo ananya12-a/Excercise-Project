@@ -357,7 +357,7 @@ def update_date_dropdown(name):
 @app.callback(
     Output('piechart', 'figure'),
     [Input('submitbtn', 'n_clicks')],
-    [State('opt-dropdown', 'value')], #state of exercise they chose
+    [State('opt-dropdown', 'value')], 
 )
 def analyze_video(n,exercise):
     print("click") #use fig.show
