@@ -1,16 +1,154 @@
 import cv2
 import numpy as np
+import dash
+import dash_bootstrap_components as dbc
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output, State
+import plotly
+import math
+import plotly.graph_objs as go
+import os
+from flask import Flask, Response
+import base64
+import os
+from urllib.parse import quote as urlquote
 
-def printt():
-    print("Hello World")
-    return
+UPLOAD_DIRECTORY = "/CSProject/app_uploaded_files"
 
-#printt()
-
-print("Enter the link of the video")
+#print("Enter the link of the video")
 #zoom_0 (1).mp4
-link = input()
+link = "ishika2.mp4" #input()
 #read_video(link)
+
+
+def get_avg_points(all_points):
+    index = 0
+    all_points_avg_new = []
+    while (index<len(all_points)):
+
+        ### at point 0 
+        counter = index + 1 ## at pt 1 
+        end = counter + 3
+        next_four = [all_points[index]]
+        while (counter<len(all_points) and (counter<=end)): ## grab next 4 frames
+            next_four.append(all_points[counter])
+            counter+=1
+        index += 1  ## skip by 5
+        #print((next_four))
+        all_points_avg_new.append(get_avg(next_four,6))
+    return all_points_avg_new
+def get_avg(next_four,number_tapes):
+    avg_points = []
+    for index in range(number_tapes):
+        avg_points.append([0,0])
+    #print (avg_points)
+    #avg_points = [(0,0),(0,0),(0,0),(0,0)]
+    for index in range (len(next_four)):
+        frame_points = next_four[index]
+        for tape in range(number_tapes):
+            avg_points[tape][0]+= (frame_points[tape][0]/(len(next_four)))
+            avg_points[tape][1]+= (frame_points[tape][1]/(len(next_four)))
+    return avg_points
+#print(avg_points)
+
+def find_lowest_in_list(y_points_avg):
+    #print(len(y_points_avg))
+    lowest = []
+    for index in range(len(y_points_avg)):
+        lowest.append([])
+    #print(lowest)
+    for index in range(len(y_points_avg)):
+        #print(y_points_avg[index])
+        lowest[index] = min(y_points_avg[index])
+    return min(lowest)
+
+
+def get_avg_y(all_points_avg,number_tapes):
+    y_points_avg = []
+    for index in range(number_tapes):
+        y_points_avg.append([])
+    #print(y_points_avg)
+    for index in range(len(all_points_avg)):
+        frame_points = all_points_avg[index]
+        for tape in range(number_tapes):
+            y_points_avg[tape].append((frame_points[tape][1]*-1))
+    lowest_avg = find_lowest_in_list(y_points_avg)
+    #print (lowest_avg)
+    #for index in range(len(all_points_avg)):
+        #for tape in range(number_tapes):
+            #y_points[tape][index]-=lowest_avg
+    for tape in range(number_tapes):
+        for index in range(len(all_points_avg)):
+            y_points_avg[tape][index]=y_points_avg[tape][index] - lowest_avg
+    return y_points_avg
+
+
+#print(y_points_avg)
+def find_dist(tape1,tape2):
+    return (((tape1[0]-tape2[0])**2+(tape1[1]-tape2[1])**2)**0.5)
+def find_angles(all_points_avg):
+    angles_avg = []
+    perf_avg = {"Good": 0, "Acceptable": 0, "Bad": 0}
+    for point in all_points_avg:
+        tape3 = point[2]
+        tape2 = point[1]
+        tape1 = point[0]
+        # dist bw 6 and 4, 6 and 5, 4 and 5 
+        dist_a = find_dist(tape2,tape3) ## mid->lowest
+        dist_b = find_dist(tape1,tape2) ## highest->mid
+        dist_c = find_dist(tape1,tape3) ## highest->lowest
+        cos_c = (dist_c**2 - dist_a**2 -dist_b**2)/(-2*dist_a*dist_b)
+        c = math.acos(cos_c)
+        c_deg = (c * 180 /math.pi) -90
+        if (c_deg>=0):
+            angles_avg.append(c_deg)
+            if (c_deg >=50):
+                perf_avg["Good"]+=1
+            elif (c_deg >=20):
+                perf_avg["Acceptable"]+=1
+            else:
+                perf_avg["Bad"]+=1
+    return angles_avg, perf_avg
+
+def find_range(angles_avg):
+    return (round(max(angles_avg)-min(angles_avg),2))
+#print (find_range(angles_avg))
+def find_avg_angle(angles_avg):
+    sum=0
+    for angle in angles_avg:
+        sum+=angle
+    return (round(sum/len(angles_avg),2))
+#print (perf_avg)
+##plot pie chart
+##5 frame average for angle
+#fig.show
+def make_pie(perf_avg):
+    trace = go.Pie(labels = ['Good','Acceptable','Bad'], values = [perf_avg['Good'],perf_avg['Acceptable'],perf_avg['Bad'],])
+    data = [trace]
+    fig1 = go.Figure(data = data)
+    #fig1.show()
+    return fig1
+
+def draw_graph_y(y_points_avg,num_tapes):
+    fig = go.Figure()
+    for index in range(num_tapes):
+        fig.add_trace(go.Scatter(y=y_points_avg[index],
+                        mode='lines+markers',
+                        name= 'tape ' + str(index+1)))
+    return fig
+
+
+def draw_graph_angles(angles_avg):
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(y=angles_avg,
+                    mode='lines+markers',
+                    name='angles'))
+    return fig
+
+
+
+
 
 def read_video_red(link):
     cap = cv2.VideoCapture(link)
@@ -29,7 +167,7 @@ def read_video_red(link):
             height = frame.shape[0]
             width = frame.shape[1]
             #cv2.imshow('frame', mask)
-            drawn_frame  = get_contours(res, frame, all_points)
+            drawn_frame= get_contours(res, frame, all_points)
             drawn_frame_list.append(drawn_frame)
             """LUV = cv2.cvtColor(res, cv2.COLOR_BGR2LUV)
             edges = cv2.Canny(LUV, 10, 100)
@@ -49,7 +187,18 @@ def read_video_red(link):
         # writing to a image array
         out.write(drawn_frame_list[i])
     out.release()
+    number_tapes = 6
+    all_points_avg = get_avg_points(all_points)
+    y_points_avg = get_avg_y(all_points_avg,6)
+    angles_avg, perf_avg = find_angles(all_points_avg)
+    fig = make_pie(perf_avg)
+    #fig.show()
+    return (all_points, fig)
     cv2.destroyAllWindows()
+
+
+
+
 
 def get_contours(mask, frame, all_points):
     LUV = cv2.cvtColor(mask, cv2.COLOR_BGR2LUV)
@@ -87,12 +236,11 @@ def get_contours(mask, frame, all_points):
         #all_points.append(useful_points) 
 
         cv2.line(frame, (int(useful_points[0][0]),int(useful_points[0][1])), (int(useful_points[1][0]),int(useful_points[1][1])), (255,255,255),4)
-    #print(all_points)
     #cv2.imshow('Found Red', frame)
     return frame
 
 #def get_cordinates()
-read_video_red(link)
+all_points, fig = read_video_red(link)
 #cvtColor()
 
 #video1: IMG_4229.mov
@@ -100,5 +248,262 @@ read_video_red(link)
 #video3: IMG_4231.mov
 
 
+all_points_avg = get_avg_points(all_points)
+y_points_avg = get_avg_y(all_points_avg,6)
+angles_avg, perf_avg = find_angles(all_points_avg)
+#fig = make_pie(perf_avg)
+fig1 = draw_graph_y(y_points_avg,6)
+fig2 = draw_graph_angles(angles_avg)
+
+figure = dcc.Graph(figure=fig,id="piechart")
+figure1 = dcc.Graph(figure=fig1)
+figure2 = dcc.Graph(figure=fig2)
+
+cardfig = dbc.Card(
+    dbc.CardBody(
+        [
+            html.H4("Angles", className="card-title"),
+            figure
+        ]
+    )
+)
+cardfig1 = dbc.Card(
+    dbc.CardBody(
+        [
+            html.H4("Y", className="card-title"),
+            figure1
+        ]
+    ),className="my-4"
+)
+cardfig2 = dbc.Card(
+    dbc.CardBody(
+        [
+            html.H4("Angles", className="card-title"),
+            figure2
+        ]
+    ),className="my-4"
+)
 
 
+
+app = dash.Dash(external_stylesheets=[dbc.themes.LITERA])
+jumbotron = dbc.Jumbotron(
+    [
+        dbc.Container(
+            [
+                html.H1("Exercise Project", className="display-3"),
+                html.P(
+                    "Coming soon",
+                    className="lead",
+                ),
+                html.P(
+                    "",
+                    className="lead",
+                ),
+                html.P(
+                    html.A(
+                        "Learn More",
+                        className="btn btn-primary btn-lg",
+                        href="#card",
+                        role="button",
+                    ),
+                    className="lead",
+                )
+            ],
+            fluid=True,
+            
+        )
+    ],
+    fluid=True,
+    #style=JUMBOTRON_STYLE,
+)
+
+link_input = dbc.FormGroup(
+    dbc.Container(
+        [
+        dbc.Label("Enter a link and press submit", className= "col-form-label col-form-label-lg", ),
+        dbc.Row(
+            [
+                html.Div(
+                    [
+                        dbc.Input(placeholder="Your link", type="text", bs_size="lg", id="link"),
+                        dbc.FormText(""),
+                    ]
+                ),
+                html.Div(
+                    [
+                        html.Button('Submit', className='btn btn-info', type="submit",id='submitbtn', n_clicks = 0),
+                    ]
+                ),
+            ]
+        )
+        
+        ]
+    ),
+    id="link_input"
+)
+file_input = html.Div(
+    html.Div(
+        [
+            html.Div(
+                [dbc.Input(type="file", className = "custom-file-input", id = "inputGroupFile02"),
+                dbc.Label("Choose File", className="custom-file-label", html_for="inputGroupFile02")],
+                className = "custom-file mb-4"
+            ),
+            dbc.Button("Submit", color="primary", className="mr-1", id='submitbtn', n_clicks = 0),
+        ]
+    )
+    ,className = "form-group ",
+)
+popup = dbc.Modal(
+            [
+                dbc.ModalHeader("Header"),
+                dbc.ModalBody("This is the content of the modal"),
+                dbc.ModalFooter(
+                    dbc.Button("Close", id="close", className="ml-auto")
+                ),
+            ],
+            id="modal",
+        ),
+fnameDict = {'Cardio': ['Walking', 'Running', 'Jogging'], 'Lower Body': ['High Knee', 'Squat', 'Lunge']}
+
+names = list(fnameDict.keys())
+nestedOptions = fnameDict[names[0]]
+
+dropdown_set = html.Div(
+    [
+        html.H4("Select type of exercise", className="card-title"),
+        dcc.Dropdown(
+            id='name-dropdown',
+            options=[{'label':name, 'value':name} for name in names],
+            value = list(fnameDict.keys())[0],className = 'mb-4'
+            ),
+        html.H4("Select exercise", className="card-title"),
+        dcc.Dropdown(
+            id='opt-dropdown',className = 'mb-4'
+            ),
+
+    ]
+)
+
+card = dbc.Card(
+    dbc.CardBody(
+        [
+            
+            dropdown_set,
+            file_input,
+        ]
+    )
+)
+
+
+
+stat_range = dbc.Card(
+                    [
+                        html.H4("Range of angles:", className="card-title ml-2 mt-2"),
+                        html.H4(str(find_range(angles_avg)) + u"\N{DEGREE SIGN}", className="card-title ml-2"),
+                    ]
+                )
+
+stat_avg_ang = dbc.Card(
+                    [
+                        html.H4("Average angle:", className="card-title ml-2 mt-2"),
+                        html.H4(str(find_avg_angle(angles_avg)) + u"\N{DEGREE SIGN}", className="card-title ml-2"),
+                    ]
+                )
+
+row_stats = dbc.Row(
+    [
+        dbc.Col(stat_range,width=4),
+        dbc.Col(stat_avg_ang,width=4),
+        dbc.Col(stat_range,width=4)
+        
+    ], className = "mb-4"
+)
+
+row = dbc.Row(
+    [
+        dbc.Col(card,width=3),
+        dbc.Col(
+            [
+                row_stats, cardfig
+            ]
+        ),
+    ]
+)
+
+
+images = html.Div(
+    html.Img(src=app.get_asset_url('img1.jpg'), style={'height':'10%', 'width':'45%','margin' : '3%'})
+)
+
+video = html.Video(src="assets/result.mp4",controls=True) ##center video and fix style, try to put in card
+
+
+
+modal = html.Div(
+    [
+        dbc.Button("Open modal", id="open"),
+        dbc.Modal(
+            [
+                dbc.ModalHeader("Guidelines"),
+                dbc.ModalBody(),
+                dbc.ModalFooter(
+                    dbc.Button("Close", id="close", className="ml-auto", style="display:none")
+                ),
+            ],
+            id="modal",
+        ),
+    ]
+)
+
+
+
+
+app.layout = html.Div([dcc.Location(id="url"), jumbotron, html.Div([row, cardfig1,cardfig2,modal,video],className="mx-5")])
+
+@app.callback(
+    dash.dependencies.Output('opt-dropdown', 'options'),
+    [dash.dependencies.Input('name-dropdown', 'value')]
+)
+def update_date_dropdown(name):
+    return [{'label': i, 'value': i} for i in fnameDict[name]]
+
+
+
+@app.callback(
+    Output('piechart', 'figure'),
+    [Input('submitbtn', 'n_clicks'), Input('inputGroupFile02', 'value')], 
+    [State('opt-dropdown', 'value')], 
+)
+def analyze_video(n,link,exercise):
+    #print("click") #use fig.show
+    print(link)
+    #print(exercise)
+    if not os.path.exists(UPLOAD_DIRECTORY):
+    os.makedirs(UPLOAD_DIRECTORY)
+    all_points, fig = read_video_red(link)
+    return fig
+    
+
+
+
+@app.callback(
+    Output("modal", "is_open"),
+    [Input("open", "n_clicks"), Input("close", "n_clicks")],
+    [State("modal", "is_open")],
+)
+def toggle_modal(n1, n2, is_open):
+    if n1 or n2:
+        return not is_open
+    return is_open
+
+
+
+
+
+if __name__ == "__main__":
+    app.run_server(debug=True)
+
+#video upload
+#return stats in functions
