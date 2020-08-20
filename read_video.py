@@ -8,17 +8,12 @@ from dash.dependencies import Input, Output, State
 import plotly
 import math
 import plotly.graph_objs as go
-import os
-from flask import Flask, Response
-import base64
-import os
-from urllib.parse import quote as urlquote
 
-UPLOAD_DIRECTORY = "/CSProject/app_uploaded_files"
+
 
 #print("Enter the link of the video")
 #zoom_0 (1).mp4
-link = "ishika2.mp4" #input()
+#link = "ishika2.mp4" #input()
 #read_video(link)
 
 
@@ -156,6 +151,8 @@ def read_video_red(link):
     print ("read")
     all_points = []
     drawn_frame_list = []
+    width = 0
+    height = 0
     while(cap.isOpened()):
         ret, frame = cap.read()
         if ret == True:
@@ -187,14 +184,18 @@ def read_video_red(link):
         # writing to a image array
         out.write(drawn_frame_list[i])
     out.release()
+    print("Read video function called for " + str(link))
     number_tapes = 6
     all_points_avg = get_avg_points(all_points)
-    y_points_avg = get_avg_y(all_points_avg,6)
+    y_points_avg = get_avg_y(all_points_avg,number_tapes)
     angles_avg, perf_avg = find_angles(all_points_avg)
     fig = make_pie(perf_avg)
+    fig1 = draw_graph_y(y_points_avg,6)
+    fig2 = draw_graph_angles(angles_avg)
     #fig.show()
-    return (all_points, fig)
     cv2.destroyAllWindows()
+    return (all_points, fig, fig1, fig2, str(find_range(angles_avg)) + u"\N{DEGREE SIGN}", str(find_avg_angle(angles_avg)) + u"\N{DEGREE SIGN}", str(round(min(angles_avg),2)) + u"\N{DEGREE SIGN}")  
+    
 
 
 
@@ -240,7 +241,7 @@ def get_contours(mask, frame, all_points):
     return frame
 
 #def get_cordinates()
-all_points, fig = read_video_red(link)
+
 #cvtColor()
 
 #video1: IMG_4229.mov
@@ -248,22 +249,25 @@ all_points, fig = read_video_red(link)
 #video3: IMG_4231.mov
 
 
+"""all_points, fig = read_video_red(link)
 all_points_avg = get_avg_points(all_points)
 y_points_avg = get_avg_y(all_points_avg,6)
 angles_avg, perf_avg = find_angles(all_points_avg)
 #fig = make_pie(perf_avg)
 fig1 = draw_graph_y(y_points_avg,6)
-fig2 = draw_graph_angles(angles_avg)
+fig2 = draw_graph_angles(angles_avg)"""
 
-figure = dcc.Graph(figure=fig,id="piechart")
-figure1 = dcc.Graph(figure=fig1)
-figure2 = dcc.Graph(figure=fig2)
+#figure = dcc.Graph(id="piechart")
+#figure1 = dcc.Graph(id="yvalues")
+figure2 = dcc.Graph(id="angles")
 
 cardfig = dbc.Card(
     dbc.CardBody(
         [
             html.H4("Angles", className="card-title"),
-            figure
+            html.Div(id = "piechart",children=[]
+            )
+            
         ]
     )
 )
@@ -271,7 +275,7 @@ cardfig1 = dbc.Card(
     dbc.CardBody(
         [
             html.H4("Y", className="card-title"),
-            figure1
+            html.Div(id = "yvalues",children=[])
         ]
     ),className="my-4"
 )
@@ -279,7 +283,7 @@ cardfig2 = dbc.Card(
     dbc.CardBody(
         [
             html.H4("Angles", className="card-title"),
-            figure2
+            html.Div(id = "angles",children=[])
         ]
     ),className="my-4"
 )
@@ -319,28 +323,24 @@ jumbotron = dbc.Jumbotron(
 )
 
 link_input = dbc.FormGroup(
-    dbc.Container(
         [
-        dbc.Label("Enter a link and press submit", className= "col-form-label col-form-label-lg", ),
+        html.H4("Enter a link and press submit", className= "card-title mx-1", ),
         dbc.Row(
             [
                 html.Div(
                     [
-                        dbc.Input(placeholder="Your link", type="text", bs_size="lg", id="link"),
-                        dbc.FormText(""),
+                        dbc.Input(placeholder="Your link", type="text", bs_size="lg", id="link", className="my-2 mx-3"),
                     ]
                 ),
                 html.Div(
                     [
-                        html.Button('Submit', className='btn btn-info', type="submit",id='submitbtn', n_clicks = 0),
+                        html.Button('Submit', className='btn btn-info mx-3', id='submitbtn', n_clicks = 0),
                     ]
                 ),
             ]
         )
         
-        ]
-    ),
-    id="link_input"
+        ],
 )
 file_input = html.Div(
     html.Div(
@@ -353,7 +353,7 @@ file_input = html.Div(
             dbc.Button("Submit", color="primary", className="mr-1", id='submitbtn', n_clicks = 0),
         ]
     )
-    ,className = "form-group ",
+    ,className = "form-group", id="file_input"
 )
 popup = dbc.Modal(
             [
@@ -391,7 +391,7 @@ card = dbc.Card(
         [
             
             dropdown_set,
-            file_input,
+            link_input,
         ]
     )
 )
@@ -401,14 +401,20 @@ card = dbc.Card(
 stat_range = dbc.Card(
                     [
                         html.H4("Range of angles:", className="card-title ml-2 mt-2"),
-                        html.H4(str(find_range(angles_avg)) + u"\N{DEGREE SIGN}", className="card-title ml-2"),
+                        html.H4(children = [], className="card-title ml-2", id="rangestat"),
                     ]
                 )
 
 stat_avg_ang = dbc.Card(
                     [
                         html.H4("Average angle:", className="card-title ml-2 mt-2"),
-                        html.H4(str(find_avg_angle(angles_avg)) + u"\N{DEGREE SIGN}", className="card-title ml-2"),
+                        html.H4(children=[], className="card-title ml-2", id="avgstat"),
+                    ]
+                )
+stat_smallest_ang = dbc.Card(
+                    [
+                        html.H4("Smallest angle:", className="card-title ml-2 mt-2"),
+                        html.H4(children=[], className="card-title ml-2", id="smalleststat"),
                     ]
                 )
 
@@ -416,7 +422,7 @@ row_stats = dbc.Row(
     [
         dbc.Col(stat_range,width=4),
         dbc.Col(stat_avg_ang,width=4),
-        dbc.Col(stat_range,width=4)
+        dbc.Col(stat_smallest_ang,width=4)
         
     ], className = "mb-4"
 )
@@ -437,7 +443,9 @@ images = html.Div(
     html.Img(src=app.get_asset_url('img1.jpg'), style={'height':'10%', 'width':'45%','margin' : '3%'})
 )
 
-video = html.Video(src="assets/result.mp4",controls=True) ##center video and fix style, try to put in card
+video = html.Center (
+    html.Video(id="resultvid", src="assets/result.mp4",controls=True) 
+)
 
 
 
@@ -449,7 +457,7 @@ modal = html.Div(
                 dbc.ModalHeader("Guidelines"),
                 dbc.ModalBody(),
                 dbc.ModalFooter(
-                    dbc.Button("Close", id="close", className="ml-auto", style="display:none")
+                    dbc.Button("Close", id="close", className="mx-5", style="display:none")
                 ),
             ],
             id="modal",
@@ -472,18 +480,27 @@ def update_date_dropdown(name):
 
 
 @app.callback(
-    Output('piechart', 'figure'),
-    [Input('submitbtn', 'n_clicks'), Input('inputGroupFile02', 'value')], 
-    [State('opt-dropdown', 'value')], 
+    [Output('piechart', 'children'),Output('yvalues', 'children'),Output('angles', 'children'), Output('resultvid', 'src'),Output('rangestat', 'children'),Output('avgstat', 'children'),Output('smalleststat', 'children')], ##add video as output and return same thing + graph call backs + stats call backs
+    [Input('submitbtn', 'n_clicks')], 
+    [State('opt-dropdown', 'value'),  State('link', 'value'), State('resultvid', 'src')], 
 )
-def analyze_video(n,link,exercise):
-    #print("click") #use fig.show
+def analyze_video(n,exercise, link, src):
+    print("click")
     print(link)
-    #print(exercise)
-    if not os.path.exists(UPLOAD_DIRECTORY):
-    os.makedirs(UPLOAD_DIRECTORY)
-    all_points, fig = read_video_red(link)
-    return fig
+    print(n)
+    if (link!=None):
+        all_points, fig, fig1, fig2, anglerange, angleavg, smallestang = read_video_red(link)
+        #fig.show()
+        ##update result video
+        #return fig
+        figure = dcc.Graph(figure=fig)
+        figure1 = dcc.Graph(figure=fig1)
+        figure2 = dcc.Graph(figure=fig2)
+        html.Video(id="resultvid", src="assets/result.mp4",controls=True) 
+        return figure, figure1, figure2, src, anglerange, angleavg, smallestang
+    else:
+        print ("prevent update called")
+        return dash.no_update
     
 
 
@@ -503,7 +520,7 @@ def toggle_modal(n1, n2, is_open):
 
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(debug=False)
 
 #video upload
 #return stats in functions
