@@ -4,10 +4,15 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_table
 from dash.dependencies import Input, Output, State
 import plotly
 import math
 import plotly.graph_objs as go
+
+import time
+import pandas as pd 
+import numpy as np
 
 
 
@@ -97,7 +102,7 @@ def find_angles(all_points_avg):
         c = math.acos(cos_c)
         c_deg = (c * 180 /math.pi) -90
         if (c_deg>=0):
-            angles_avg.append(c_deg)
+            angles_avg.append(round(c_deg,2))
             if (c_deg >=50):
                 perf_avg["Good"]+=1
             elif (c_deg >=20):
@@ -194,7 +199,7 @@ def read_video_red(link):
     fig2 = draw_graph_angles(angles_avg)
     #fig.show()
     cv2.destroyAllWindows()
-    return (all_points, fig, fig1, fig2, str(find_range(angles_avg)) + u"\N{DEGREE SIGN}", str(find_avg_angle(angles_avg)) + u"\N{DEGREE SIGN}", str(round(min(angles_avg),2)) + u"\N{DEGREE SIGN}")  
+    return (all_points, fig, fig1, fig2, str(find_range(angles_avg)) , str(find_avg_angle(angles_avg)), str(round(min(angles_avg),2)), angles_avg, perf_avg)  
     
 
 
@@ -386,6 +391,7 @@ dropdown_set = html.Div(
     ]
 )
 
+
 card = dbc.Card(
     dbc.CardBody(
         [
@@ -396,7 +402,7 @@ card = dbc.Card(
     )
 )
 
-
+table = html.Div(children=[], id="datatable")
 
 stat_range = dbc.Card(
                     [
@@ -443,10 +449,12 @@ images = html.Div(
     html.Img(src=app.get_asset_url('img1.jpg'), style={'height':'10%', 'width':'45%','margin' : '3%'})
 )
 
-video = html.Center (
-    html.Video(id="resultvid", src="assets/result.mp4",controls=True) 
+video = html.Div(
+    children = [
+    html.Center (
+        html.Video(id="resultvid",controls=True) 
+    )], id="videodiv"
 )
-
 
 
 modal = html.Div(
@@ -466,9 +474,9 @@ modal = html.Div(
 )
 
 
+##dash table [dcc.table] to convert userdata to table  or use dash bootstrap table
 
-
-app.layout = html.Div([dcc.Location(id="url"), jumbotron, html.Div([row, cardfig1,cardfig2,modal,video],className="mx-5")])
+app.layout = html.Div([dcc.Location(id="url"), jumbotron, html.Div([row, cardfig1,cardfig2,modal,video, table],className="mx-5")])
 
 @app.callback(
     dash.dependencies.Output('opt-dropdown', 'options'),
@@ -478,9 +486,13 @@ def update_date_dropdown(name):
     return [{'label': i, 'value': i} for i in fnameDict[name]]
 
 
+##1. add data to csv file
+##2. show data as table (historic performance)
+##3. Try graph
+##4. Sample tape positions (image) + tape image
 
 @app.callback(
-    [Output('piechart', 'children'),Output('yvalues', 'children'),Output('angles', 'children'), Output('resultvid', 'src'),Output('rangestat', 'children'),Output('avgstat', 'children'),Output('smalleststat', 'children')], ##add video as output and return same thing + graph call backs + stats call backs
+    [Output('piechart', 'children'),Output('yvalues', 'children'),Output('angles', 'children'), Output('videodiv', 'children'),Output('rangestat', 'children'),Output('avgstat', 'children'),Output('smalleststat', 'children'), Output('datatable', 'children')], 
     [Input('submitbtn', 'n_clicks')], 
     [State('opt-dropdown', 'value'),  State('link', 'value'), State('resultvid', 'src')], 
 )
@@ -489,15 +501,40 @@ def analyze_video(n,exercise, link, src):
     print(link)
     print(n)
     if (link!=None):
-        all_points, fig, fig1, fig2, anglerange, angleavg, smallestang = read_video_red(link)
+        all_points, fig, fig1, fig2, anglerange, angleavg, smallestang, angles, perf_angles = read_video_red(link)
         #fig.show()
         ##update result video
         #return fig
+        print (src)
         figure = dcc.Graph(figure=fig)
         figure1 = dcc.Graph(figure=fig1)
         figure2 = dcc.Graph(figure=fig2)
-        html.Video(id="resultvid", src="assets/result.mp4",controls=True) 
-        return figure, figure1, figure2, src, anglerange, angleavg, smallestang
+        currentime = time.ctime()
+        video = html.Center(html.Video(id="resultvid", src="assets/result.mp4?dummy=" + currentime,controls=True) )
+        dataframe = pd.read_csv('UserData.csv')
+        df1 = pd.DataFrame({"Range":[anglerange],
+                                "Avg": [angleavg],
+                                "Smallest":[smallestang],
+                                "Good":[perf_angles.get("Good")],
+                                "Bad":[perf_angles.get("Bad")],
+                                "Acceptable":[perf_angles.get("Acceptable")],
+                                "Angles":[str(angles)]}) 
+
+        dataframe = dataframe.append(df1, ignore_index = True)
+        dataframe.to_csv('UserData.csv', index=False)
+        table = dash_table.DataTable(
+            id='table',
+            style_data={
+                'whiteSpace': 'normal',
+                'height': 'auto',
+                'lineHeight': '15px'
+            },
+            style_cell={'maxWidth': '500px', 'textAlign': 'left'},
+            columns=[{"name": i, "id": i} for i in dataframe.columns],
+            data=dataframe.to_dict('records'),
+        )
+        ##return table (converted)
+        return figure, figure1, figure2, video, anglerange + u"\N{DEGREE SIGN}", angleavg + u"\N{DEGREE SIGN}", smallestang + u"\N{DEGREE SIGN}", table
     else:
         print ("prevent update called")
         return dash.no_update
