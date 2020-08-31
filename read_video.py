@@ -360,7 +360,7 @@ file_input = html.Div(
     )
     ,className = "form-group", id="file_input"
 )
-popup = dbc.Modal(
+"""popup = dbc.Modal(
             [
                 dbc.ModalHeader("Header"),
                 dbc.ModalBody("This is the content of the modal"),
@@ -369,7 +369,7 @@ popup = dbc.Modal(
                 ),
             ],
             id="modal",
-        ),
+        ),"""
 fnameDict = {'Cardio': ['Walking', 'Running', 'Jogging'], 'Lower Body': ['High Knee', 'Squat', 'Lunge']}
 
 names = list(fnameDict.keys())
@@ -403,6 +403,15 @@ card = dbc.Card(
 )
 
 table = html.Div(children=[], id="datatable")
+
+graph_history = dbc.Card(
+                    dbc.CardBody(
+                        [
+                            html.H4("Avg Angle over time", className="card-title"),
+                            html.Div(id = "angle_time_graph",children=[])
+                        ]
+                    )
+                )
 
 stat_range = dbc.Card(
                     [
@@ -457,7 +466,7 @@ video = html.Div(
 )
 
 
-modal = html.Div(
+"""modal = html.Div(
     [
         dbc.Button("Open modal", id="open"),
         dbc.Modal(
@@ -471,12 +480,12 @@ modal = html.Div(
             id="modal",
         ),
     ]
-)
+)"""
 
 
 ##dash table [dcc.table] to convert userdata to table  or use dash bootstrap table
 
-app.layout = html.Div([dcc.Location(id="url"), jumbotron, html.Div([row, cardfig1,cardfig2,modal,video, table],className="mx-5")])
+app.layout = html.Div([dcc.Location(id="url"), jumbotron, html.Div([row, cardfig1,cardfig2,video, table, graph_history],className="mx-5")])
 
 @app.callback(
     dash.dependencies.Output('opt-dropdown', 'options'),
@@ -492,7 +501,7 @@ def update_date_dropdown(name):
 ##4. Sample tape positions (image) + tape image
 
 @app.callback(
-    [Output('piechart', 'children'),Output('yvalues', 'children'),Output('angles', 'children'), Output('videodiv', 'children'),Output('rangestat', 'children'),Output('avgstat', 'children'),Output('smalleststat', 'children'), Output('datatable', 'children')], 
+    [Output('piechart', 'children'),Output('yvalues', 'children'),Output('angles', 'children'), Output('videodiv', 'children'),Output('rangestat', 'children'),Output('avgstat', 'children'),Output('smalleststat', 'children'), Output('angle_time_graph', 'children')], 
     [Input('submitbtn', 'n_clicks')], 
     [State('opt-dropdown', 'value'),  State('link', 'value'), State('resultvid', 'src')], 
 )
@@ -519,10 +528,11 @@ def analyze_video(n,exercise, link, src):
                                 "Bad":[perf_angles.get("Bad")],
                                 "Acceptable":[perf_angles.get("Acceptable")],
                                 "Angles":[str(angles)]}) 
-
+        df1.insert(0, 'TimeStamp', pd.datetime.now().replace(microsecond=0))
         dataframe = dataframe.append(df1, ignore_index = True)
+        
         dataframe.to_csv('UserData.csv', index=False)
-        table = dash_table.DataTable(
+        """table = dash_table.DataTable(
             id='table',
             style_data={
                 'whiteSpace': 'normal',
@@ -532,9 +542,13 @@ def analyze_video(n,exercise, link, src):
             style_cell={'maxWidth': '500px', 'textAlign': 'left'},
             columns=[{"name": i, "id": i} for i in dataframe.columns],
             data=dataframe.to_dict('records'),
-        )
+        )"""
+        #print (dataframe.index)
+        fig = dcc.Graph(figure = go.Figure(go.Scatter(x = dataframe['TimeStamp'], y = dataframe['Avg'],
+                  name='Angles over Time')))
+        #fig.show()
         ##return table (converted)
-        return figure, figure1, figure2, video, anglerange + u"\N{DEGREE SIGN}", angleavg + u"\N{DEGREE SIGN}", smallestang + u"\N{DEGREE SIGN}", table
+        return figure, figure1, figure2, video, anglerange + u"\N{DEGREE SIGN}", angleavg + u"\N{DEGREE SIGN}", smallestang + u"\N{DEGREE SIGN}", fig
     else:
         print ("prevent update called")
         return dash.no_update
@@ -542,7 +556,7 @@ def analyze_video(n,exercise, link, src):
 
 
 
-@app.callback(
+"""@app.callback(
     Output("modal", "is_open"),
     [Input("open", "n_clicks"), Input("close", "n_clicks")],
     [State("modal", "is_open")],
@@ -550,7 +564,7 @@ def analyze_video(n,exercise, link, src):
 def toggle_modal(n1, n2, is_open):
     if n1 or n2:
         return not is_open
-    return is_open
+    return is_open"""
 
 
 
